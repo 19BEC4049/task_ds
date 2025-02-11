@@ -1,12 +1,14 @@
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
+import Home from "./components/Home";
 
 function App() {
   return (
     <div>
       <Navbar />
-      <main className="p-4">
-        <h1 className="text-2xl ">Welcome to the Driving School</h1>
-      </main>
+      <Home />
+      <Footer />
+      
     </div>
   );
 }
