@@ -10,13 +10,13 @@ import MyComponent from './homelayouts/MyComponent'
 function Home() {
   return (
     <div>
-      <MyComponent/>
         <Layout1/>
         <SpecialOffer/>
         <PricingSection/>
         <Layout4/>
         <LearningJourney/>
         <FaqSection/>
+      <MyComponent/>
 
     </div>
   )
