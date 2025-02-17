@@ -1,34 +1,89 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
+
 const PricingSection = () => {
   const [behindTheWheelData, setBehindTheWheelData] = useState(null);
   const [allCourses, setAllCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedHours, setSelectedHours] = useState(2);
+  const [selectedCourse, setSelectedCourse] = useState([]);
+  const [comboDataResponse, setComboDataResponse] = useState(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await axios.post(
-          "https://testoneactdevapi.projectsideaboxdigital.io.in/api/v1/getAllCourse",
-          { type: "" },
-          { headers: { "Content-Type": "application/json" } }
-        );
+  // Fetch Course Data
+  const fetchData = async () => {
+    try {
+      const response = await axios.post(
+        "https://testoneactdevapi.projectsideaboxdigital.io.in/api/v1/getAllCourse",
+        { type: "" },
+        { headers: { "Content-Type": "application/json" } }
+      );
 
-        if (response.data?.response?.length > 0) {
-          setBehindTheWheelData(response.data.response[0]);
-          setAllCourses(response.data.response.filter(item => [3, 4, 5].includes(item.productid)));
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
+      if (response.data?.response?.length > 0) {
+        setBehindTheWheelData(response.data.response[0]);
+        const filteredData = response.data.response.filter(item => [3, 4, 5].includes(item.productid));
+        setAllCourses(filteredData);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Fetch Combo Data (Updated to Send Dynamic Selection)
+  const comboData = async () => {
+    if (!behindTheWheelData) return; // Ensure data is available
+
+    try {
+      const selectedHourPackage = behindTheWheelData?.courseDetails?.find(
+        (detail) => detail.duration === selectedHours
+      )?.packageid;
+
+      const selectedCoursePackages = allCourses
+        .filter((course) => selectedCourse.includes(course.productname))
+        .map((course) => course.courseDetails[0].packageid);
+
+      const packageIds = selectedHourPackage ? [selectedHourPackage, ...selectedCoursePackages] : selectedCoursePackages;
+
+      if (packageIds.length === 0) {
+        console.warn("No package IDs selected");
+        return;
+      }
+
+      const response = await axios.post(
+        "https://testoneactdevapi.projectsideaboxdigital.io.in/api/v1/checkPackageisExist",
+        { packageid: packageIds, studentid: 0 }
+      );
+
+      console.log("Combo Data Response:", response.data);
+      setComboDataResponse(response.data.response); // Store the response data
+    } catch (error) {
+      console.error("Error fetching combo data:", error);
+    }
+  };
+
+  // Call fetchData on mount
+  useEffect(() => {
     fetchData();
   }, []);
+
+  // Call comboData when selectedHours or selectedCourse updates
+  useEffect(() => {
+    comboData();
+  }, [selectedHours, selectedCourse, behindTheWheelData]);
+
+  const handleHourSelection = (duration) => {
+    setSelectedHours(duration);
+  };
+
+  const handleSelection = (productName) => {
+    setSelectedCourse((prevSelected) =>
+      prevSelected.includes(productName)
+        ? prevSelected.filter((item) => item !== productName) // Remove if already selected
+        : [...prevSelected, productName] // Add if not selected
+    );
+  };
 
   const getPricing = (course, index) => {
     if (!selectedHours) return course.courseDetails[0].packageamount;
@@ -38,7 +93,6 @@ const PricingSection = () => {
     if (selectedHours >= 6 && selectedHours < 12) {
       return course.courseDetails[0].combopackageamount1;
     }
-    // return index === 2 ? course.courseDetails[0].combopackageamount2 : course.courseDetails[0].combopackageamount1;
     return course.courseDetails[0].combopackageamount2;
   };
 
@@ -61,7 +115,13 @@ const PricingSection = () => {
           ) : behindTheWheelData ? (
             behindTheWheelData.courseDetails?.map((detail, index) => (
               <label key={index} className="flex items-center justify-between border p-4 rounded-lg shadow-sm bg-white cursor-pointer">
-                <input type="radio" name="hours" className="mr-2" onChange={() => setSelectedHours(detail.duration)} checked={selectedHours === detail.duration}  />
+                <input
+                  type="radio"
+                  name="hours"
+                  className="mr-2"
+                  onChange={() => handleHourSelection(detail.duration)}
+                  checked={selectedHours === detail.duration}
+                />
                 <span>{detail.duration} Hours</span>
                 <div className="flex flex-col">
                   <span className="text-md font-bold text-black">${detail.discountprice}</span>
@@ -75,19 +135,27 @@ const PricingSection = () => {
         </div>
       </div>
 
-      <div className="text-white p-6 mt-6 rounded-lg flex flex-col md:flex-row bg-no-repeat bg-cover bg-center" style={{ backgroundImage: "url('/src/assets/images/download.jpg')" }}>
+      <div className="text-white p-6 mt-6 rounded-lg flex flex-col md:flex-row bg-no-repeat bg-cover bg-center"
+        style={{ backgroundImage: "url('/src/assets/images/download.jpg')" }}>
         <div className="md:w-1/4 text-center md:text-left mb-4 md:mb-0">
-          <h2 className="text-3xl text-black font-bold">COMBO OFFERS FOR YOU</h2>
+          <h2 className="text-3xl text-black font-bold">COMBO <br /> OFFERS <br /> FOR YOU</h2>
         </div>
         <div className="md:w-3/4">
-          <p className="text-sm text-center md:text-left mb-4">BUNDLE UP & SAVE - Click Below Course And Buy as a Package</p>
+          <p className="text-sm text-center md:text-left mb-4">
+            BUNDLE UP & SAVE - Click Below Course And Buy as a Package
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {loading ? (
               <p>Loading offers...</p>
-            ) : allCourses.length === 3 ? (
+            ) : allCourses.length >= 3 ? (
               allCourses.map((course, index) => (
                 <label key={index} className="flex items-center justify-between bg-white text-black p-4 rounded-lg shadow-sm cursor-pointer">
-                  <input type="checkbox" className="mr-2" />
+                  <input
+                    type="checkbox"
+                    className="mr-2"
+                    onChange={() => handleSelection(course.productname)}
+                    checked={selectedCourse.includes(course.productname)}
+                  />
                   <span>{course.productname}</span>
                   <span className="text-lg font-bold">${getPricing(course, index)}</span>
                   <span className="text-gray-500 line-through">${course.courseDetails[0].packageamount}</span>
@@ -105,9 +173,23 @@ const PricingSection = () => {
         <h1 className="text-2xl font-bold">{selectedHours ? `$${selectedHours * 40}` : "$0.00"}</h1>
         <button className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">Buy Now</button>
       </div>
-      <p className="mt-3 text-md font-semibold text-center sm:text-left">
-        Please note: Teens Age 16 & 17 are required to take the 30-hour Driver’s Education class in order to take their Driver’s License.
-      </p>
+
+      {comboDataResponse && (
+  <div className="mt-4 p-4 bg-white shadow-lg rounded-lg">
+    <h2 className="text-xl font-bold text-black">Combo Package Details</h2>
+    <p className="text-gray-600">Final Cost: ${comboDataResponse.finalcost}</p>
+    <p className="text-gray-600">Discount Price: ${comboDataResponse.discountprice}</p>
+    <h3 className="text-lg font-semibold mt-2">Included Packages:</h3>
+    <ul className="list-disc pl-5">
+      {comboDataResponse.packages?.map((pkg, index) => (
+        <li key={index} className="text-gray-700">
+          {pkg.packagename} - ${pkg.discountprice}
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+
     </div>
   );
 };
